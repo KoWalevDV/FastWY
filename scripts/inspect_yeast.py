@@ -6,7 +6,7 @@ import re
 import sys
 
 
-def parse(source):
+def parse(source, annotated):
     platforms = {}
     sample = platform = title = None
     with gzip.open(source, "rt", encoding="latin-1") as stream:
@@ -51,10 +51,12 @@ def parse(source):
                     valid += 1
                     if fields[0] in mapping:
                         genes.add(mapping[fields[0]])
-                yield sample, title, platform, valid, len(genes)
+                yield sample, title, platform, valid, len(genes), len(genes & annotated)
 
 
 if __name__ == "__main__":
     writer = csv.writer(sys.stdout, delimiter="\t", lineterminator="\n")
-    writer.writerow(("sample", "title", "platform", "nonempty_value", "distinct_orfs"))
-    writer.writerows(parse(Path(sys.argv[1])))
+    with gzip.open(sys.argv[2], "rt", encoding="ascii") as genes:
+        annotated = {row.split("\t", 2)[1] for row in genes}
+    writer.writerow(("sample", "title", "platform", "nonempty_value", "distinct_orfs", "in_sgd"))
+    writer.writerows(parse(Path(sys.argv[1]), annotated))
