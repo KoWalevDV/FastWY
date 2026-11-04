@@ -13,8 +13,8 @@ _, author = read_run(out / "author.tsv", True)
 threshold, cpp = read_run(out / "cpp.tsv", False)
 diff = sorted(cpp.keys() - author.keys())
 logs = {}
-for name, folder in (("original", "mushroom-direct"), ("accelerated", "replay-05-mushroom-lcm")):
-    content = (Path("build") / folder / "author.log").read_text()
+for name in ("original", "accelerated"):
+    content = (out / f"minp-{name}.log").read_text()
     logs[name] = dict(re.findall(r"^\[permute (\d+)\] minP ([^,]+)", content, re.M))
 rank50 = sorted(map(Decimal, logs["original"].values()))[49]
 with (out / "minima-differences.tsv").open("w", newline="") as target:
