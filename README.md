@@ -57,3 +57,15 @@ g++ -std=c++14 -O2 src/main.cpp src/fastwy.cpp -o fastwy.exe
 
 Поместите оба файла в data/uci/raw и выполните python scripts/prepare_uci.py.
 Для сверки с авторским кодом используются Python 3.12 и GCC. Исходный эталон — [LAMP, коммит 4bda274](https://github.com/a-terada/lamp/tree/4bda274138d12c7ea39b2a848672a10247f32f0a). Для проверок Windows предусмотрены scripts/prepare_reference.py, scripts/run_reference.py и scripts/measure_windows.py.
+
+## Проверка сборки и дополнительные опыты
+
+На Windows с GCC выполнить из корня проекта:
+
+    ./scripts/check_build.ps1
+
+Скрипт компилирует C++14, сверяет полный вывод игрушечного примера и печатает сведения о машине и компиляторе. Для проверки глобальной нулевой гипотезы:
+
+    python scripts/check_null_fwer.py build/fastwy-check.exe experiments/14-null-fwer
+
+Матрицы и протоколы исторических входов входят в учебный архив. Скрипты check_null_fwer.py, benchmark_matched_yeast.py, timed_fastwy.cpp и lcm_eval.cpp воспроизводят проверки и замеры опытов 13–15.

@@ -37,14 +37,25 @@ Result from_lcm(const Dataset& data, const std::vector<Bits>& permutations,
         throw std::runtime_error("cannot open LCM output");
     }
     Fisher fisher(data.size, positives);
+    const auto blocks = (permutations.size() + 63) / 64;
+    std::vector<std::uint64_t> membership(data.size * blocks);
+    for (std::size_t i = 0; i < permutations.size(); ++i) {
+        for (std::size_t row = 0; row < data.size; ++row) {
+            if (permutations[i][row / 64] & (std::uint64_t{1} << (row % 64))) {
+                membership[row * blocks + i / 64] |= std::uint64_t{1} << (i % 64);
+            }
+        }
+    }
     std::vector<long double> minima(permutations.size(), 0);
+    const auto budget = minima.size() / 20;
+    std::vector<long double> ranked(minima.size());
     std::vector<Finding> potential;
     std::string line, cover;
     Bits coverage(data.labels.size());
     std::vector<std::size_t> occupied;
     occupied.reserve(coverage.size());
     const auto observation_cap = std::log(0.05L);
-    long double current_max = 0;
+    long double rank_bound = 0;
     std::size_t records = 0;
     while (std::getline(input, line)) {
         if (!std::getline(input, cover)) {
@@ -61,11 +72,15 @@ Result from_lcm(const Dataset& data, const std::vector<Bits>& permutations,
             throw std::runtime_error("invalid LCM support");
         }
         if (records % 10000 == 0) {
-            current_max = *std::max_element(minima.begin(), minima.end());
+            // The rank can only decrease. Values above its current upper bound
+            // cannot enter the final threshold or a reported adjusted count.
+            ranked = minima;
+            std::nth_element(ranked.begin(), ranked.begin() + budget, ranked.end());
+            rank_bound = ranked[budget];
         }
         const auto& tail = fisher.tail(support);
         const auto best = tail.back();
-        if (best > observation_cap && best >= current_max) {
+        if (best > observation_cap && best > rank_bound) {
             continue;
         }
         const auto rows = numbers(cover);
@@ -99,16 +114,44 @@ Result from_lcm(const Dataset& data, const std::vector<Bits>& permutations,
             std::sort(items.begin(), items.end());
             potential.push_back({std::move(items), support, observed, p, 0});
         }
-        if (best < current_max) {
-            for (std::size_t i = 0; i < minima.size(); ++i) {
+        if (best <= rank_bound) {
+            const auto update = [&](std::size_t i) {
                 if (minima[i] <= best) {
-                    continue;
+                    return;
                 }
                 std::size_t a = 0;
                 for (const auto word : occupied) {
                     a += popcount(coverage[word] & permutations[i][word]);
                 }
                 minima[i] = std::min(minima[i], tail[a - lo]);
+            };
+            const auto required = std::lower_bound(tail.begin(), tail.end(), rank_bound,
+                                                   std::greater<long double>()) - tail.begin() + lo;
+            const auto anchors = std::min<std::size_t>(8, support);
+            const auto outside = support - anchors;
+            if (required > outside + anchors / 2) {
+                // An overlap of required objects needs at least this many
+                // positives among the first anchors, even if all others match.
+                const auto needed = required - outside;
+                for (std::size_t block = 0; block < blocks; ++block) {
+                    std::uint64_t at_least[9] = {~std::uint64_t{0}};
+                    for (std::size_t j = 0; j < anchors; ++j) {
+                        const auto positive = membership[rows[j] * blocks + block];
+                        for (auto k = std::min(j + 1, needed); k > 0; --k) {
+                            at_least[k] |= at_least[k - 1] & positive;
+                        }
+                    }
+                    auto candidates = at_least[needed];
+                    while (candidates) {
+                        const auto i = block * 64 + __builtin_ctzll(candidates);
+                        update(i);
+                        candidates &= candidates - 1;
+                    }
+                }
+            } else {
+                for (std::size_t i = 0; i < minima.size(); ++i) {
+                    update(i);
+                }
             }
         }
         for (const auto word : occupied) {
@@ -117,7 +160,6 @@ Result from_lcm(const Dataset& data, const std::vector<Bits>& permutations,
     }
 
     std::sort(minima.begin(), minima.end());
-    const auto budget = minima.size() / 20;
     if (minima[budget] > observation_cap ||
         (floor > 1 && (fisher.best(floor - 1) <= minima[budget]
                        || same_p(fisher.best(floor - 1), minima[budget])))) {
