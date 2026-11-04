@@ -1,6 +1,7 @@
 """Apply the LAMP GSE6462 recipe to the historical inputs and validate the pair."""
 import argparse
 import csv
+from decimal import Decimal
 import gzip
 import json
 from pathlib import Path
@@ -23,12 +24,14 @@ def read(path):
 
 def validated(items, labels):
     header, features = read(items)
-    _, targets = read(labels)
+    with labels.open(newline="", encoding="utf-8-sig") as file:
+        targets = [row for row in csv.reader(file) if row and not row[0].startswith("#")]
     labels_by_id = {}
     for identifier, label in targets:
-        if identifier in labels_by_id or label not in {"0", "1"}:
+        value = Decimal(label)
+        if identifier in labels_by_id or value not in (0, 1):
             raise ValueError("duplicate ID or nonbinary label")
-        labels_by_id[identifier] = label
+        labels_by_id[identifier] = str(int(value))
     ids = [row[0] for row in features]
     if len(set(ids)) != len(ids) or set(ids) != labels_by_id.keys():
         raise ValueError("item and label IDs do not form a unique aligned pair")
