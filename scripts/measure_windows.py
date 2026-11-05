@@ -25,6 +25,15 @@ class JobLimits(ct.Structure):
                 ("peak_process", ct.c_size_t), ("peak_job", ct.c_size_t)]
 
 
+class JobAccounting(ct.Structure):
+    _fields_ = [
+        ("user_time", ct.c_int64), ("kernel_time", ct.c_int64),
+        ("period_user_time", ct.c_int64), ("period_kernel_time", ct.c_int64),
+        ("page_faults", w.DWORD), ("total_processes", w.DWORD),
+        ("active_processes", w.DWORD), ("terminated_processes", w.DWORD),
+    ]
+
+
 def kernel_function(name, result, *args):
     function = getattr(ct.WinDLL("kernel32", use_last_error=True), name)
     function.restype = result
@@ -37,7 +46,7 @@ def check(success):
         raise ct.WinError(ct.get_last_error())
 
 
-def measure(command, output, error):
+def measure(command, output, error, active_clock=False):
     create_job = kernel_function("CreateJobObjectW", w.HANDLE, ct.c_void_p, w.LPCWSTR)
     assign = kernel_function("AssignProcessToJobObject", w.BOOL, w.HANDLE, w.HANDLE)
     resume = kernel_function("ResumeThread", w.DWORD, w.HANDLE)
@@ -45,6 +54,7 @@ def measure(command, output, error):
                             ct.c_void_p, w.DWORD, ct.c_void_p)
     configure = kernel_function("SetInformationJobObject", w.BOOL, w.HANDLE, ct.c_int,
                                 ct.c_void_p, w.DWORD)
+    unbiased_time = kernel_function("QueryUnbiasedInterruptTime", w.BOOL, ct.POINTER(ct.c_uint64))
     job = create_job(None, None)
     check(job)
     process = thread = None
@@ -62,6 +72,9 @@ def measure(command, output, error):
                 hStdInput=handles[0], hStdOutput=handles[1], hStdError=handles[2],
                 lpAttributeList={"handle_list": handles},
             )
+            active_start = ct.c_uint64()
+            if active_clock:
+                check(unbiased_time(ct.byref(active_start)))
             start = time.perf_counter()
             process, thread, _, _ = _winapi.CreateProcess(
                 None, subprocess.list2cmdline(command), None, None, True,
@@ -72,12 +85,21 @@ def measure(command, output, error):
             running = True
             _winapi.WaitForSingleObject(process, _winapi.INFINITE)
             elapsed = time.perf_counter() - start
+            active_end = ct.c_uint64()
+            if active_clock:
+                check(unbiased_time(ct.byref(active_end)))
             limits = JobLimits()
             check(query(job, 9, ct.byref(limits), ct.sizeof(limits), None))
             code = _winapi.GetExitCodeProcess(process)
             if code:
                 raise RuntimeError(f"child exited with code {code}; see {error}")
-            return {"elapsed_seconds": elapsed, "peak_tree_commit_bytes": limits.peak_job}
+            metrics = {"elapsed_seconds": elapsed, "peak_tree_commit_bytes": limits.peak_job}
+            if active_clock:
+                accounting = JobAccounting()
+                check(query(job, 1, ct.byref(accounting), ct.sizeof(accounting), None))
+                metrics["active_elapsed_seconds"] = (active_end.value - active_start.value) / 1e7
+                metrics["cpu_tree_seconds"] = (accounting.user_time + accounting.kernel_time) / 1e7
+            return metrics
     finally:
         if process is not None:
             if not running:
@@ -90,13 +112,14 @@ def measure(command, output, error):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--active-clock", action="store_true")
     parser.add_argument("output", type=Path)
     parser.add_argument("error", type=Path)
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     if not args.command:
         parser.error("missing command")
-    print(json.dumps(measure(args.command, args.output, args.error)))
+    print(json.dumps(measure(args.command, args.output, args.error, args.active_clock)))
 
 
 if __name__ == "__main__":

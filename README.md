@@ -96,3 +96,9 @@ g++ -std=c++14 -O2 src/main.cpp src/fastwy.cpp -o fastwy.exe
     ctest --test-dir build --output-on-failure
 
 У MinGW 6.3.0 сборка Makefiles из пути с кириллицей может завершаться ошибкой поиска исходников. Для этого компилятора CMake/CTest проверен из копии в D:/FastWY-1.5/ctest-source-v2. Прямая команда g++ из каталога проекта также проверена.
+
+Для длительных опытов измеритель поддерживает дополнительный контроль сна системы:
+
+    python scripts/measure_windows.py --active-clock output.tsv error.log ./fastwy.exe items.csv labels.csv 1000 42
+
+В JSON сохраняются прежнее полное elapsed_seconds, active_elapsed_seconds через QueryUnbiasedInterruptTime (без сна/гибернации), cpu_tree_seconds и peak_tree_commit_bytes. Старые вызовы и поля остаются совместимыми. Документация счётчиков: https://learn.microsoft.com/en-us/windows/win32/api/realtimeapiset/nf-realtimeapiset-queryunbiasedinterrupttime и https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_basic_accounting_information .
