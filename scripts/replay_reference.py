@@ -2,6 +2,8 @@
 import argparse
 import csv
 import math
+import pickle
+from tempfile import TemporaryFile
 import sys
 import time
 from pathlib import Path
@@ -68,6 +70,58 @@ def accelerate(fastwy, size, positive):
     fastwy.enumerateSigComb = original_labels
 
 
+class DiskBucket:
+    """Append-only sequence, replayed in the original order from a temporary file."""
+
+    def __init__(self, directory):
+        self.directory = directory
+        self.file = None
+        self.size = 0
+        self.reading = False
+
+    def append(self, record):
+        if self.file is None:
+            self.file = TemporaryFile(dir=self.directory)
+        if self.reading:
+            self.file.seek(0, 2)
+            self.reading = False
+        pickle.dump(record, self.file, protocol=pickle.HIGHEST_PROTOCOL)
+        self.size += 1
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index):
+        if index < 0:
+            index += self.size
+        for position, record in enumerate(self):
+            if position == index:
+                return record
+        raise IndexError(index)
+
+    def __iter__(self):
+        if self.file is None:
+            return
+        self.file.seek(0)
+        self.reading = True
+        for _ in range(self.size):
+            yield pickle.load(self.file)
+
+
+def use_disk_buckets(directory):
+    from frepattern.nodeClass import Node
+
+    directory.mkdir(parents=True, exist_ok=True)
+    initialize = Node.__init__
+
+    def initialize_with_disk(self):
+        initialize(self)
+        self.itemset_list = DiskBucket(directory)
+
+    Node.__init__ = initialize_with_disk
+
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("reference", type=Path)
@@ -76,9 +130,14 @@ def main():
     parser.add_argument("log", type=Path)
     parser.add_argument("--count", type=int, default=1000)
     parser.add_argument("--accelerate", action="store_true")
+    parser.add_argument("--disk-cache", type=Path)
     args = parser.parse_args()
+    if args.disk_cache and args.accelerate:
+        parser.error("--disk-cache cannot be combined with --accelerate")
     sys.path.insert(0, str(args.reference.resolve()))
     import fastwy
+    if args.disk_cache:
+        use_disk_buckets(args.disk_cache)
 
     with (args.inputs / "labels.csv").open(newline="", encoding="ascii") as file:
         records = list(csv.reader(file))[1:]

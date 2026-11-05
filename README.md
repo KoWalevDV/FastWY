@@ -69,3 +69,30 @@ g++ -std=c++14 -O2 src/main.cpp src/fastwy.cpp -o fastwy.exe
     python scripts/check_null_fwer.py build/fastwy-check.exe experiments/14-null-fwer
 
 Матрицы и протоколы исторических входов входят в учебный архив. Скрипты check_null_fwer.py, benchmark_matched_yeast.py, timed_fastwy.cpp и lcm_eval.cpp воспроизводят проверки и замеры опытов 13–15.
+
+## Публичные протоколы и точное воспроизведение
+
+[Машинно-читаемый комплект опытов](https://github.com/KoWalevDV/FastWY/releases/tag/experiments-v2) содержит подготовленные CSV, общие перестановки, TSV, measurements.csv, comparison.json и закреплённый архив исходников LAMP. После распаковки в корень клона:
+
+    python scripts/verify_experiment_bundle.py .
+    python tests/exhaustive_oracle.py ./fastwy.exe
+
+В REPRODUCE.md приведены команды повторения конкретных численных результатов. scripts/fetch_historical_inputs.py независимо извлекает биологические входы из закреплённых Git-объектов и проверяет SHA-256.
+
+Для эталона при ограниченной памяти доступен дополнительный режим хранения покрытий на диске:
+
+    python scripts/replay_reference.py build/reference/lamp-master inputs permutations.csv author.log --disk-cache D:/FastWY-cache
+
+Он заменяет список покрытий на последовательность в файлах, сохраняя статистические функции и порядок просмотра автора. Проверка на 1000 общих перестановках дрожжей сравнивает все minP, порог и находки. Команда python tests/test_reference_storage.py проверяет повторное чтение и добавление записей. Режим --accelerate выбирается отдельно.
+
+Правило порога C++ выбирает максимум по наблюдавшимся minP с эмпирической долей ≤0,05. В граничном случае совпадений у первого ранга авторский adjustedThreshold может вернуть порог с долей выше 0,05. Эти случаи отдельно зафиксированы в опыте 18.
+
+## Автоматические проверки
+
+При наличии Python 3 CTest запускает четыре проверки: точный игрушечный вывод, независимый перебор 25 малых матриц, дисковую последовательность эталона и C++-модули. Без Python доступны игрушечный тест и C++-модули.
+
+    cmake -S . -B build -G "MinGW Makefiles"
+    cmake --build build
+    ctest --test-dir build --output-on-failure
+
+У MinGW 6.3.0 сборка Makefiles из пути с кириллицей может завершаться ошибкой поиска исходников. Для этого компилятора CMake/CTest проверен из копии в D:/FastWY-1.5/ctest-source-v2. Прямая команда g++ из каталога проекта также проверена.
