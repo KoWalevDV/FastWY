@@ -28,7 +28,10 @@ def main():
             continue
         if path.suffix.lower() not in {".tsv", ".log", ".txt", ".md", ".stderr", ".json"}:
             continue
-        text = path.read_text(encoding="utf-8-sig")
+        try:
+            text = path.read_text(encoding="utf-8-sig")
+        except UnicodeDecodeError:
+            text = path.read_text(encoding="cp1251")
         text = text.replace(str(root), "<project>").replace(root.as_posix(), "<project>")
         text = re.sub(r"(?m)^Computer:.*$", "Computer: local verification host", text)
         path.write_text(text, encoding="utf-8")
