@@ -102,3 +102,5 @@ g++ -std=c++14 -O2 src/main.cpp src/fastwy.cpp -o fastwy.exe
     python scripts/measure_windows.py --active-clock output.tsv error.log ./fastwy.exe items.csv labels.csv 1000 42
 
 В JSON сохраняются прежнее полное elapsed_seconds, active_elapsed_seconds через QueryUnbiasedInterruptTime (без сна/гибернации), cpu_tree_seconds и peak_tree_commit_bytes. Старые вызовы и поля остаются совместимыми. Документация счётчиков: https://learn.microsoft.com/en-us/windows/win32/api/realtimeapiset/nf-realtimeapiset-queryunbiasedinterrupttime и https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_basic_accounting_information .
+
+Опция --progress печатает номер текущей перестановки в stderr с немедленным сбросом буфера. Для длительного дискового прогона можно просматривать этот журнал отдельно.

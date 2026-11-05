@@ -135,6 +135,7 @@ def main():
     parser.add_argument("--count", type=int, default=1000)
     parser.add_argument("--accelerate", action="store_true")
     parser.add_argument("--disk-cache", type=Path)
+    parser.add_argument("--progress", action="store_true")
     args = parser.parse_args()
     if args.disk_cache and args.accelerate:
         parser.error("--disk-cache cannot be combined with --accelerate")
@@ -155,6 +156,8 @@ def main():
 
         def replay(transactions, values):
             row = next(rows)
+            if args.progress:
+                print(f"permutation {rows.line_num}/{args.count}", file=sys.stderr, flush=True)
             if len(row) != len(records) or set(row) - {"0", "1"} or row.count("1") != positive:
                 raise ValueError("invalid fixed permutation")
             result = []
