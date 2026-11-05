@@ -200,14 +200,22 @@ Result from_lcm(const Dataset& data, const std::vector<Bits>& permutations,
 int main(int argc, char** argv) {
     try {
         if (argc != 7) {
-            throw std::runtime_error("usage: lcm_eval items labels patterns floor count seed");
+            throw std::runtime_error("usage: lcm_eval items labels patterns floor {count seed | --permutation-file path}");
         }
         const auto data = read_data(argv[1], argv[2]);
-        const auto count = unsigned_number(argv[5]);
-        if (count < 20 || count > 10000) {
-            throw std::runtime_error("expected 20..10000 permutations");
+        std::vector<Bits> permutations;
+        if (std::string(argv[5]) == "--permutation-file") {
+            permutations = read_permutations(data, argv[6]);
+        } else {
+            const auto count = unsigned_number(argv[5]);
+            if (count < 20 || count > 10000) {
+                throw std::runtime_error("expected 20..10000 permutations");
+            }
+            permutations = random_labels(data, count, unsigned_number(argv[6]));
         }
-        const auto permutations = random_labels(data, count, unsigned_number(argv[6]));
+        if (permutations.size() < 20) {
+            throw std::runtime_error("expected at least 20 fixed permutations");
+        }
         write_result(data, from_lcm(data, permutations, argv[3], unsigned_number(argv[4])));
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

@@ -72,7 +72,7 @@ g++ -std=c++14 -O2 src/main.cpp src/fastwy.cpp -o fastwy.exe
 
 ## Публичные протоколы и точное воспроизведение
 
-[Машинно-читаемый комплект опытов](https://github.com/KoWalevDV/FastWY/releases/tag/experiments-v3) содержит подготовленные CSV, общие перестановки, TSV, measurements.csv, comparison.json и закреплённый архив исходников LAMP. После распаковки в корень клона:
+[Машинно-читаемый комплект опытов](https://github.com/KoWalevDV/FastWY/releases/tag/experiments-v4) содержит подготовленные CSV, общие перестановки, TSV, measurements.csv, comparison.json и закреплённый архив исходников LAMP. После распаковки в корень клона:
 
     python scripts/verify_experiment_bundle.py .
     python tests/exhaustive_oracle.py ./fastwy.exe
@@ -104,3 +104,11 @@ g++ -std=c++14 -O2 src/main.cpp src/fastwy.cpp -o fastwy.exe
 В JSON сохраняются прежнее полное elapsed_seconds, active_elapsed_seconds через QueryUnbiasedInterruptTime (без сна/гибернации), cpu_tree_seconds и peak_tree_commit_bytes. Старые вызовы и поля остаются совместимыми. Документация счётчиков: https://learn.microsoft.com/en-us/windows/win32/api/realtimeapiset/nf-realtimeapiset-queryunbiasedinterrupttime и https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_basic_accounting_information .
 
 Опция --progress печатает номер текущей перестановки в stderr с немедленным сбросом буфера. Для длительного дискового прогона можно просматривать этот журнал отдельно.
+
+## Полная сверка при дисковом хранении
+
+Для GSE6462 выполнена авторская процедура на 1 000 общих перестановок с дисковым кэшем и счётчиком меток в C++. Все 17 находок, порог, поддержки, числа положительных и исходные p совпали с C++-прототипом. Четыре скорректированные доли отличаются согласно исходному adjustPval. Протоколы, сравнение и сырые выходы входят в опыт 21 открытого комплекта.
+
+Исходная функция Fisher, границы поддержек, правила остановки и порога автора сохраняются. Дисковый счётчик получает каждое новое p через callback исходной Python-функции. Дополнительные проверки сравнивают все minP, поддержки остановки, числа кандидатов и счётчики новых p на 1 000 перестановок дрожжей и 20 перестановках GSE6462.
+
+Сборка и запуск описаны в scripts/REFERENCE_DISK.md. Готовая Windows x64 DLL входит в открытый комплект в tools/reference_scan.dll. Её разрядность соответствует Python x64. Основной FastWY использует стандартную библиотеку C++14.

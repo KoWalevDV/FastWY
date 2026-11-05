@@ -126,7 +126,7 @@ def use_disk_buckets(directory):
 
 
 
-def main():
+def main(setup=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("reference", type=Path)
     parser.add_argument("inputs", type=Path)
@@ -141,6 +141,8 @@ def main():
         parser.error("--disk-cache cannot be combined with --accelerate")
     sys.path.insert(0, str(args.reference.resolve()))
     import fastwy
+    if setup is not None:
+        setup(args, fastwy)
     if args.disk_cache:
         use_disk_buckets(args.disk_cache)
 
