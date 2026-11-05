@@ -72,7 +72,7 @@ g++ -std=c++14 -O2 src/main.cpp src/fastwy.cpp -o fastwy.exe
 
 ## Публичные протоколы и точное воспроизведение
 
-[Машинно-читаемый комплект опытов](https://github.com/KoWalevDV/FastWY/releases/tag/experiments-v2) содержит подготовленные CSV, общие перестановки, TSV, measurements.csv, comparison.json и закреплённый архив исходников LAMP. После распаковки в корень клона:
+[Машинно-читаемый комплект опытов](https://github.com/KoWalevDV/FastWY/releases/tag/experiments-v3) содержит подготовленные CSV, общие перестановки, TSV, measurements.csv, comparison.json и закреплённый архив исходников LAMP. После распаковки в корень клона:
 
     python scripts/verify_experiment_bundle.py .
     python tests/exhaustive_oracle.py ./fastwy.exe

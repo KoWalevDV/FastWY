@@ -3,6 +3,7 @@ import argparse
 import csv
 import math
 import pickle
+import struct
 from tempfile import TemporaryFile
 import sys
 import time
@@ -85,7 +86,9 @@ class DiskBucket:
         if self.reading:
             self.file.seek(0, 2)
             self.reading = False
-        pickle.dump(record, self.file, protocol=pickle.HIGHEST_PROTOCOL)
+        payload = pickle.dumps(record, protocol=pickle.HIGHEST_PROTOCOL)
+        self.file.write(struct.pack("<I", len(payload)))
+        self.file.write(payload)
         self.size += 1
 
     def __len__(self):
@@ -105,7 +108,8 @@ class DiskBucket:
         self.file.seek(0)
         self.reading = True
         for _ in range(self.size):
-            yield pickle.load(self.file)
+            length = struct.unpack("<I", self.file.read(4))[0]
+            yield pickle.loads(self.file.read(length))
 
 
 def use_disk_buckets(directory):
